@@ -119,16 +119,18 @@ class TransG:
             factor / prob_true * prob_local_true * np.sign(self.weights_clusters[rel][0, cluster])
         self.weights_clusters[rel_f][0, cluster] -= \
             factor / prob_false * prob_local_false * np.sign(self.weights_clusters[rel_f][0, cluster])
-        change = factor * np.sign(self.entity[head] + self.rel_clusters[rel][cluster] - self.entity[tail]) * \
-                 prob_local_true / prob_true * math.fabs(self.weights_clusters[rel][0, cluster])
-        change_f = factor * np.sign(self.entity[head_f] + self.rel_clusters[rel_f][cluster] - self.entity[tail_f]) * \
-                   prob_local_true / prob_true * math.fabs(self.weights_clusters[rel_f][0, cluster])
-        self.entity[head] -= change
-        self.entity[tail] += change
-        self.rel_clusters[rel][cluster] -= change
-        self.entity[head_f] += change_f
-        self.entity[tail_f] -= change_f
-        self.rel_clusters[rel_f][cluster] += change_f
+        change = factor * prob_local_true / prob_true * math.fabs(self.weights_clusters[rel][0, cluster])
+        change_f = factor * prob_local_false / prob_false * math.fabs(self.weights_clusters[rel_f][0, cluster])
+        self.entity[head] -= change * np.sign(self.entity[head] + self.rel_clusters[rel][cluster] - self.entity[tail])
+        self.entity[tail] += change * np.sign(self.entity[head] + self.rel_clusters[rel][cluster] - self.entity[tail])
+        self.rel_clusters[rel][cluster] -= change * np.sign(self.entity[head] + self.rel_clusters[rel][cluster] -
+                                                            self.entity[tail])
+        self.entity[head_f] += change_f * np.sign(self.entity[head_f] + self.rel_clusters[rel_f][cluster] -
+                                                  self.entity[tail_f])
+        self.entity[tail_f] -= change_f * np.sign(self.entity[head_f] + self.rel_clusters[rel_f][cluster] -
+                                                  self.entity[tail_f])
+        self.rel_clusters[rel_f][cluster] += change_f * np.sign(self.entity[head_f] +
+                                                                self.rel_clusters[rel_f][cluster] - self.entity[tail_f])
         # print la.norm(self.rel_clusters[rel][cluster])
         if la.norm(self.rel_clusters[rel][cluster]) > 1.0:
             self.rel_clusters[rel][cluster] = preprocessing.normalize(self.rel_clusters[rel][cluster], norm='l2')
@@ -146,12 +148,13 @@ class TransG:
         for c in range(0, len(self.rel_clusters[rel])):
             self.train_cluster_once(triple, triple_f, c, prob_true, prob_false, self.alpha)
         prob_new_component = self.CRP * math.exp(-np.sum(np.abs(self.entity[head] - self.entity[tail])))
-        if random.random() < prob_new_component and len(self.rel_clusters[rel]) < 20 and self.epos >= self.step_before:
-            compent = len(self.rel_clusters[rel])
-            self.weights_clusters[rel][0, compent] = self.CRP
-            self.rel_clusters[rel][compent] = np.empty([1, self.dim], dtype=float)
+                if random.random() < prob_new_component / (prob_new_component + prob_true) \
+                and len(self.rel_clusters[rel]) < 20 and self.epos >= self.step_before:
+            component = len(self.rel_clusters[rel])
+            self.weights_clusters[rel][0, component] = self.CRP
+            self.rel_clusters[rel][component] = np.empty([1, self.dim], dtype=float)
             for elem in range(0, self.dim):
-                self.rel_clusters[rel][compent][0, elem] = (2 * random.random() - 1) * math.sqrt(6.0 / self.dim)
+                self.rel_clusters[rel][component][0, elem] = (2 * random.random() - 1) * math.sqrt(6.0 / self.dim)
         if la.norm(self.entity[head]) > 1.0:
             self.entity[head] = preprocessing.normalize(self.entity[head])
         if la.norm(self.entity[tail]) > 1.0:
